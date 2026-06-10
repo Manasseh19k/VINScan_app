@@ -1,0 +1,62 @@
+name: Test & Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        env:
+          SECRET_KEY: test-secret-key
+          DEBUG: 'True'
+          DATABASE_URL: postgres://postgres:postgres@localhost/testdb
+          REDIS_URL: redis://localhost:6379/0
+          ALLOWED_HOSTS: localhost
+          CORS_ALLOWED_ORIGINS: http://localhost
+          STRIPE_SECRET_KEY: sk_test_placeholder
+          STRIPE_WEBHOOK_SECRET: whsec_placeholder
+          STRIPE_MONTHLY_PRICE_ID: price_placeholder
+          STRIPE_LOOKUP_PRICE_ID: price_placeholder
+          VINAUDIT_API_KEY: placeholder
+          FRONTEND_URL: http://localhost
+        run: python manage.py test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Railway
+        run: npx @railway/cli up --detach
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

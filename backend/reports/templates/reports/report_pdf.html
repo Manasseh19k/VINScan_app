@@ -1,0 +1,158 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+  body { font-family: Helvetica, sans-serif; font-size: 12px; color: #222; margin: 0; padding: 32px; }
+  .header { display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 2px solid {{ brand.color }}; padding-bottom: 16px; margin-bottom: 24px; }
+  .brand-name { font-size: 20px; font-weight: bold; color: {{ brand.color }}; }
+  .car-name   { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+  .vin        { font-family: monospace; font-size: 11px; color: #888; margin-bottom: 16px; }
+  .score-wrap { text-align: center; margin: 16px 0; }
+  .score-ring { display: inline-block; width: 80px; height: 80px; border-radius: 50%;
+                border: 4px solid {{ brand.color }};
+                line-height: 80px; text-align: center; }
+  .score-num  { font-size: 28px; font-weight: bold; color: {{ brand.color }}; }
+  .score-lbl  { font-size: 11px; color: #aaa; margin-top: 4px; }
+  .section      { margin-top: 20px; }
+  .section-title{ font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+                  color: #aaa; margin-bottom: 8px; }
+  .row          { display: flex; justify-content: space-between; padding: 6px 0;
+                  border-bottom: 0.5px solid #eee; }
+  .label        { color: #555; }
+  .tag-g        { background: #E1F5EE; color: #0F6E56; padding: 2px 8px;
+                  border-radius: 4px; font-size: 11px; }
+  .tag-r        { background: #FCEBEB; color: #A32D2D; padding: 2px 8px;
+                  border-radius: 4px; font-size: 11px; }
+  .tag-y        { background: #FAEEDA; color: #854F0B; padding: 2px 8px;
+                  border-radius: 4px; font-size: 11px; }
+  .acc-card     { background: #F9F9F7; border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+  .acc-title    { font-weight: bold; margin-bottom: 4px; }
+  .acc-detail   { color: #666; font-size: 11px; margin-top: 2px; }
+  .airbag       { color: #A32D2D; font-size: 11px; margin-top: 2px; }
+  .footer       { margin-top: 32px; font-size: 10px; color: #aaa;
+                  border-top: 0.5px solid #eee; padding-top: 12px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="brand-name">{{ brand.name }}</div>
+    <div style="font-size:11px;color:#aaa;">Vehicle History Report</div>
+  </div>
+  <div style="text-align:right;font-size:11px;color:#aaa;">
+    Generated: {% now "N j, Y" %}<br/>
+    VIN: {{ report.vin }}
+  </div>
+</div>
+
+<div class="car-name">
+  {{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }} {{ vehicle.trim }}
+</div>
+<div class="vin">VIN: {{ report.vin }}</div>
+
+<div class="score-wrap">
+  <div class="score-ring">
+    <div class="score-num">{{ report.risk_score }}</div>
+  </div>
+  <div class="score-lbl">Buy Confidence Score</div>
+</div>
+
+<div class="section">
+  <div class="section-title">Accident history</div>
+  {% if report.accidents %}
+    {% for a in report.accidents %}
+    <div class="acc-card">
+      <div class="acc-title">{{ a.severity|default:"Minor" }} — {{ a.date|default:"Date unknown" }}</div>
+      {% if a.type %}<div class="acc-detail">{{ a.type }}</div>{% endif %}
+      {% if a.state %}<div class="acc-detail">State: {{ a.state }}{% if a.odometer %} · At {{ a.odometer|intcomma }} miles{% endif %}</div>{% endif %}
+      {% if a.airbag_deployed %}<div class="airbag">Airbags deployed</div>{% endif %}
+      {% if a.damage_areas %}<div class="acc-detail">Damage: {{ a.damage_areas|join:", " }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="row">
+      <span class="label">No accidents on record</span>
+      <span class="tag-g">Clean</span>
+    </div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Ownership</div>
+  <div class="row">
+    <span class="label">Previous owners</span>
+    <span>{{ report.owner_count|default:"—" }}</span>
+  </div>
+  {% if report.owners %}
+    {% for o in report.owners %}
+    <div class="row">
+      <span class="label">Owner {{ forloop.counter }}</span>
+      <span>{{ o.entity_type|default:"Private" }} · {{ o.state|default:"—" }}
+        {% if o.acquired %} ({{ o.acquired }}{% if o.sold %} – {{ o.sold }}{% endif %}){% endif %}
+      </span>
+    </div>
+    {% endfor %}
+  {% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Title status</div>
+  <div class="row">
+    <span class="label">Title flags</span>
+    {% if report.title_flags %}
+      <span class="tag-r">{{ report.title_flags|join:", " }}</span>
+    {% else %}
+      <span class="tag-g">Clean</span>
+    {% endif %}
+  </div>
+  {% if report.last_reported_odometer %}
+  <div class="row">
+    <span class="label">Last reported mileage</span>
+    <span>{{ report.last_reported_odometer|intcomma }} mi</span>
+  </div>
+  {% endif %}
+</div>
+
+<div class="section">
+  <div class="section-title">Safety recalls</div>
+  {% if report.recalls %}
+    {% for r in report.recalls %}
+    <div class="row">
+      <span class="label">{{ r.component }}</span>
+      <span class="tag-r">Recall #{{ r.id }}</span>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div class="row">
+      <span class="label">Open recalls</span>
+      <span class="tag-g">None</span>
+    </div>
+  {% endif %}
+</div>
+
+{% if report.market_value.fair %}
+<div class="section">
+  <div class="section-title">Market value</div>
+  <div class="row">
+    <span class="label">Estimated fair value</span>
+    <span style="font-weight:bold;">${{ report.market_value.fair|intcomma }}</span>
+  </div>
+  <div class="row">
+    <span class="label">Source</span>
+    <span>{{ report.market_value.source }}</span>
+  </div>
+</div>
+{% endif %}
+
+<div class="footer">
+  Report generated by {{ brand.name }} &nbsp;·&nbsp;
+  Data: NHTSA, VINAudit &nbsp;·&nbsp;
+  For informational purposes only. Not a guarantee of vehicle condition.
+</div>
+
+</body>
+</html>
