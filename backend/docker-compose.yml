@@ -1,0 +1,44 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: vin
+      POSTGRES_USER: vin
+      POSTGRES_PASSWORD: vinpassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "gunicorn vin_project.wsgi --workers 2 --bind 0.0.0.0:8000"
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app:rw
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: celery -A vin_project worker --loglevel=info --concurrency=1
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+    volumes:
+      - .:/app:rw
+
+volumes:
+  postgres_data:
